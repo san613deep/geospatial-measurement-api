@@ -32,7 +32,7 @@ A REST API built with FastAPI that accepts geospatial files, reads their feature
 geospatial-measurement-api/
 ├── app/
 │   ├── main.py
-│   ├── init.py
+│   ├── __init__.py
 │   └── services/
 │       ├── __init__.py
 │       ├── file_reader.py

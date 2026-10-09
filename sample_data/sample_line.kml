@@ -1,0 +1,11 @@
+
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <Placemark>
+      <name>Sample Line</name>
+      <LineString>
+        <coordinates>-74.0060,40.7128,0 -74.0050,40.7128,0</coordinates>
+      </LineString>
+    </Placemark>
+  </Document>
+</kml>

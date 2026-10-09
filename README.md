@@ -32,16 +32,25 @@ A REST API built with FastAPI that accepts geospatial files, reads their feature
 geospatial-measurement-api/
 ├── app/
 │   ├── main.py
+│   ├── init.py
 │   └── services/
+│       ├── __init__.py
 │       ├── file_reader.py
 │       ├── measurements.py
 │       └── storage.py
 ├── tests/
 │   ├── test_main.py
 │   └── test_measurements.py
+├── sample_data/
+│   ├── sample_line.kml
+│   ├── sample_polygon.kml
+│   ├── sample_shapefile.zip
+│   └── Shapefile component files
+├── make_shapefile.py
+├── make_zip.py
 ├── requirements.txt
 ├── README.md
-└── geospatial_api.db
+└── .gitignore
 ```
 
 The database file is created by the application. It may not exist until the application initializes.
@@ -57,7 +66,7 @@ The database file is created by the application. It may not exist until the appl
 ### 1. Clone the repository
 
 ```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
+git clone https://github.com/san613deep/geospatial-measurement-api
 cd geospatial-measurement-api
 ```
 
@@ -104,7 +113,7 @@ Example using curl:
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/api/files/" \
-  -F "file=@sample_polygon.kml"
+  -F "file=@sample_data/sample_polygon.kml"
 ```
 
 The response includes a file ID and extracted feature information, including geometry, properties, CRS, and measurement results.

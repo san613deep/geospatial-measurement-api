@@ -1,229 +1,153 @@
-
 # Geospatial File Measurement API
 
-A REST API built with FastAPI that accepts geospatial files, reads their features, and calculates measurements for supported geometries.
+A FastAPI service that accepts KML files and ZIP archives containing a Shapefile, extracts vector features, and calculates geometry measurements in metric units.
 
 ## Features
 
-- Upload KML files and ZIP archives containing a Shapefile.
-- Extract feature geometry, geometry type, properties, and coordinate reference system (CRS).
-- Calculate polygon area in square meters.
-- Calculate line length in meters.
-- Identify point geometries that do not require area or length measurements.
-- Transform geometries into a projected coordinate system before measuring.
-- Store uploaded file results in SQLite for later retrieval.
-- Retrieve file details and feature measurements using API endpoints.
-- Validate common file and geometry errors.
+- Upload KML and zipped Shapefile datasets.
+- Extract feature geometry, attributes and source CRS.
+- Calculate polygon and multipolygon area in square metres.
+- Calculate line and multiline length in metres.
+- Identify point geometries for which area/length is not applicable.
+- Transform geographic coordinates into a projected CRS before measuring.
+- Persist upload results in SQLite and retrieve file metadata and measurements.
+- Return explicit statuses for missing CRS, invalid geometry and unsupported cases.
 
-## Technology Stack
-
-- **Python** — application language
-- **FastAPI** — REST API framework
-- **GeoPandas** — geospatial file reading and feature handling
-- **Shapely** — geometry operations
-- **PyProj** — coordinate reference system transformations
-- **Pyogrio** — geospatial data reading engine
-- **SQLite** — persistent storage
-- **Pytest** — automated testing
-
-## Project Structure
+## Architecture
 
 ```text
-geospatial-measurement-api/
-├── app/
-│   ├── main.py
-│   ├── __init__.py
-│   └── services/
-│       ├── __init__.py
-│       ├── file_reader.py
-│       ├── measurements.py
-│       └── storage.py
-├── tests/
-│   ├── test_main.py
-│   └── test_measurements.py
-├── sample_data/
-│   ├── sample_line.kml
-│   ├── sample_polygon.kml
-│   ├── sample_shapefile.zip
-│   └── Shapefile component files
-├── make_shapefile.py
-├── make_zip.py
-├── requirements.txt
-├── README.md
-└── .gitignore
+HTTP upload
+    |
+    v
+FastAPI validation
+    |
+    v
+Temporary upload workspace
+    |
+    v
+GeoPandas / Pyogrio file reader
+    |
+    v
+Shapely geometry + PyProj CRS transformation
+    |
+    v
+Measurement result
+    |
+    v
+JSON-safe response + SQLite persistence
+    |
+    v
+GET file details / GET measurements
 ```
 
-The database file is created by the application. It may not exist until the application initializes.
+## Technology
 
-## Requirements
+Python 3.11+, FastAPI, GeoPandas, Pyogrio, Shapely, PyProj, SQLite, Pytest and HTTPX.
 
-- Python 3.12 or a compatible Python version
-- pip
-- A terminal such as PowerShell on Windows
+## Project structure
+
+```text
+app/
+  main.py
+  services/
+    file_reader.py
+    measurements.py
+    storage.py
+tests/
+  test_main.py
+  test_measurements.py
+  test_measurement_collections.py
+sample_data/
+requirements.txt
+README.md
+```
 
 ## Installation
 
-### 1. Clone the repository
+### Windows PowerShell
+
+```powershell
+git clone https://github.com/san613deep/geospatial-measurement-api.git
+cd geospatial-measurement-api
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### macOS / Linux
 
 ```bash
-git clone https://github.com/san613deep/geospatial-measurement-api
+git clone https://github.com/san613deep/geospatial-measurement-api.git
 cd geospatial-measurement-api
-```
-
-Replace the placeholder with your actual GitHub repository URL.
-
-### 2. Create a virtual environment
-
-On Windows PowerShell:
-
-```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-```
-
-### 3. Install dependencies
-
-```powershell
-python -m pip install -r requirements.txt
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
 ## Run the API
 
-Start the development server from the project root:
-
-```powershell
+```bash
 python -m uvicorn app.main:app --reload
 ```
 
-The API will normally be available at:
+- API root: [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
+- Health: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
+- Swagger UI: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
-- API root: http://127.0.0.1:8000/
-- Health check: http://127.0.0.1:8000/health
-- Interactive API documentation: http://127.0.0.1:8000/docs
+## API endpoints
 
-## API Endpoints
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/files/` | Upload a KML or zipped Shapefile |
+| GET | `/api/files/{file_id}/` | Retrieve uploaded-file metadata |
+| GET | `/api/files/{file_id}/measurements/` | Retrieve feature measurements |
 
-### 1. Upload a geospatial file
-
-**Endpoint:** `POST /api/files/`
-
-Accepts a `.kml` file or a `.zip` archive containing exactly one Shapefile.
-
-Example using curl:
+Upload a sample polygon:
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/api/files/" \
   -F "file=@sample_data/sample_polygon.kml"
 ```
 
-The response includes a file ID and extracted feature information, including geometry, properties, CRS, and measurement results.
+Use the returned `id` with the two GET endpoints.
 
-Save the returned file ID for the retrieval endpoints.
+## Measurement model
 
-### 2. Retrieve file details
-
-**Endpoint:** `GET /api/files/{id}/`
-
-Returns the stored information for a previously uploaded file.
-
-Example:
-
-```bash
-curl "http://127.0.0.1:8000/api/files/1/"
-```
-
-Replace `1` with an ID returned by your upload request.
-
-### 3. Retrieve measurements
-
-**Endpoint:** `GET /api/files/{id}/measurements/`
-
-Returns the measurement results for the stored file's features.
-
-Example:
-
-```bash
-curl "http://127.0.0.1:8000/api/files/1/measurements/"
-```
-
-## Measurement Logic
-
-| Geometry | Measurement | Unit |
+| Geometry | Result | Unit |
 |---|---|---|
-| Polygon | Area | Square meters |
-| MultiPolygon | Combined polygon area | Square meters |
-| LineString | Length | Meters |
-| MultiLineString | Combined line length | Meters |
-| Point | Not required | None |
-| MultiPoint | Not required | None |
+| Polygon / MultiPolygon | Area | square metres |
+| LineString / MultiLineString | Length | metres |
+| Point / MultiPoint | Not required | — |
 
-Measurements are calculated after transforming the geometry into a projected coordinate system. The current implementation chooses a UTM zone based on a representative point.
+Geographic longitude/latitude coordinates are angular values, so the service transforms supported geometries into a projected UTM CRS before calculating planar area or length.
 
-Geographic coordinates such as longitude and latitude are angular coordinates. Measuring their raw coordinate values would not produce reliable areas in square meters or lengths in meters.
+## Measurement statuses
 
-## Measurement Statuses
+The service reports statuses including `COMPLETED`, `NOT_REQUIRED`, `NOT_AVAILABLE`, `CRS_REQUIRED`, `INVALID_CRS`, `INVALID_GEOMETRY`, `UNSUPPORTED_GEOMETRY`, `UNSUPPORTED_CRS_REGION`, `INVALID_COORDINATES`, `TRANSFORMATION_FAILED` and `MEASUREMENT_FAILED`.
 
-The measurement service can return statuses such as:
+## Tests
 
-- `COMPLETED` — measurement calculated successfully.
-- `NOT_REQUIRED` — the geometry does not require area or length measurement.
-- `NOT_AVAILABLE` — geometry is missing or empty.
-- `CRS_REQUIRED` — a source coordinate reference system is required.
-- `INVALID_CRS` — the source CRS could not be interpreted.
-- `INVALID_GEOMETRY` — the geometry is invalid.
-- `UNSUPPORTED_GEOMETRY` — the geometry type is not supported for measurement.
-- `UNSUPPORTED_CRS_REGION` — the location is outside the supported UTM latitude range.
-- `INVALID_COORDINATES` — transformed coordinates are invalid.
-- `TRANSFORMATION_FAILED` — a coordinate transformation failed.
-- `MEASUREMENT_FAILED` — the resulting measurement is not finite.
+Run the complete test suite from the repository root:
 
-## Coordinate Reference Systems (CRS)
-
-A CRS describes how coordinates relate to locations on Earth.
-
-This application uses PyProj to interpret the source CRS and transform supported geometries into a local UTM CRS before calculating measurements.
-
-The CRS used for the measurement is included in successful measurement results.
-
-**Limitations:** UTM is best suited to relatively local features. Large geometries or geometries spanning multiple UTM zones may require a different projection strategy to improve measurement accuracy. Measurements also depend on the correctness of the input CRS.
-
-## Data Storage
-
-The application uses SQLite to store uploaded file results. This allows file details and measurements to be retrieved after an API request finishes and after the development server restarts.
-
-## Run Automated Tests
-
-From the project root, run:
-
-```powershell
+```bash
 python -m pytest -q
 ```
 
-The current test suite covers file upload, measurement calculations, file retrieval, unsupported formats, invalid ZIP files, missing Shapefiles, invalid CRS values, and invalid polygons.
+The tests cover API health, upload and retrieval flows, supported/unsupported files, geometry measurement, CRS errors, invalid geometry and multi-part geometry cases. GitHub Actions runs the same test command on pushes and pull requests.
 
-## Current Test Status
+## Limitations and responsible use
 
-The project currently has **16 passing automated tests** in the development environment.
+- The current measurement strategy selects a UTM zone from a representative point. Very large geometries or features spanning multiple UTM zones need a more suitable projection/geodesic strategy.
+- Results depend on the correctness of the input CRS.
+- The API is a portfolio prototype. Authentication, per-user access controls, upload-size limits, rate limiting and production monitoring should be added before public deployment.
+- Do not use the current measurements as legal or surveying-grade evidence without independent validation.
 
-Run the test command above to verify the results in your own environment.
+## Future improvements
 
-## Future Improvements
-
-- Add more tests for malformed KML, missing Shapefile components, and unusual coordinate systems.
-- Improve measurement accuracy for large geometries and features spanning multiple UTM zones.
-- Add upload size limits and stronger resource-exhaustion protections.
-- Improve API error responses and request validation.
-- Add authentication and authorization if the API is deployed for multiple users.
-- Add deployment configuration and production monitoring.
-
-## Learning Outcomes
-
-This project demonstrates:
-
-- Building REST APIs with FastAPI.
-- Reading geospatial formats with GeoPandas.
-- Working with vector geometries and CRS transformations.
-- Calculating polygon areas and line lengths.
-- Persisting application data using SQLite.
-- Writing automated tests with Pytest.
-- Handling invalid files and measurement errors.
+- Add upload size and archive extraction limits.
+- Add tests for antimeridian-crossing and multi-zone geometries.
+- Add geodesic measurement support for large regions.
+- Add authentication and per-user file ownership.
+- Add structured logs and deployment monitoring.
